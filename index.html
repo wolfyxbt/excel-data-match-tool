@@ -36,15 +36,21 @@
     "react-dom/client": "https://esm.sh/react-dom@^19.2.3/client",
     "xlsx": "https://esm.sh/xlsx@^0.18.5",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
-    <!-- 显式引入入口文件 -->
-    <script type="module" src="./index.tsx"></script>
+    
+    <!-- 使用 esm.sh/run 实时编译并运行 TSX 源码 -->
+    <!-- 这种方式适合小型项目或演示，直接上传源码即可运行 -->
+    <script type="module">
+      import { run } from 'https://esm.sh/run';
+      // 告诉加载器运行入口文件
+      import './index.tsx';
+    </script>
 </body>
 </html>
