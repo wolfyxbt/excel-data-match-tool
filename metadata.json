@@ -1,0 +1,6 @@
+
+{
+  "name": "Excel 数据匹配工具",
+  "description": "一个专业的纯前端工具，用于导入两列 Excel 基础数据，支持手动输入或批量导入搜索词，并将匹配结果导出为 Excel 文件。",
+  "requestFramePermissions": []
+}

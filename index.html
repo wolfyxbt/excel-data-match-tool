@@ -1,0 +1,158 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel 数据匹配工具 - 纯前端版</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (Excel 处理) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" class="min-h-screen flex flex-col items-center p-4 md:p-8">
+        <div class="max-w-4xl w-full">
+            <!-- 页眉 -->
+            <header class="mb-8 text-center">
+                <div class="inline-flex items-center justify-center p-3 bg-blue-600 rounded-2xl mb-4 shadow-lg shadow-blue-200">
+                    <i data-lucide="file-spreadsheet" class="text-white w-8 h-8"></i>
+                </div>
+                <h1 class="text-3xl font-bold text-gray-900">Excel 数据匹配工具</h1>
+                <p class="text-gray-500 mt-2">从参考数据中快速匹配并收集 KOL/UID 信息</p>
+            </header>
+
+            <!-- 错误提示 -->
+            <div id="error-container" class="hidden mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700 animate-slide-down">
+                <i data-lucide="alert-circle" class="w-5 h-5 mr-3 shrink-0"></i>
+                <span id="error-message" class="text-sm font-medium flex-1"></span>
+                <button onclick="hideError()" class="p-1 hover:bg-red-100 rounded">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- 初始上传区域 (改为 label 自动关联 input) -->
+            <label id="upload-section" for="source-file-input" class="block bg-white p-12 border-2 border-dashed border-gray-300 rounded-3xl shadow-sm text-center hover:border-blue-400 transition-colors group cursor-pointer">
+                <input type="file" id="source-file-input" class="hidden" accept=".xlsx, .xls">
+                <div class="mx-auto w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <i data-lucide="file-up" class="w-8 h-8 text-blue-600"></i>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900">第一步：导入基础数据</h2>
+                <p class="text-gray-500 text-sm mt-1 mb-6">上传包含所有 KOL 和 UID 对应关系的 Excel</p>
+                <div class="inline-block bg-blue-600 group-hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-medium transition-all shadow-md active:scale-95">
+                    选择参考 Excel 文件
+                </div>
+            </label>
+
+            <!-- 主操作界面 -->
+            <div id="main-interface" class="hidden space-y-6">
+                <!-- 状态控制栏 -->
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-green-100 rounded-lg">
+                            <i data-lucide="check-circle-2" class="text-green-600 w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">参考数据已就绪</p>
+                            <p id="data-count-text" class="text-xs text-gray-500">已缓存 0 条记录</p>
+                        </div>
+                    </div>
+                    <button id="reset-btn" class="text-xs font-bold text-gray-400 hover:text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition-all flex items-center gap-2 uppercase tracking-wider">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        更换参考数据
+                    </button>
+                </div>
+
+                <!-- 搜索界面 -->
+                <div class="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="text-sm font-semibold text-gray-700">手动搜索或批量导入</label>
+                        <label for="batch-file-input" class="cursor-pointer text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-100">
+                            <i data-lucide="file-plus-2" class="w-3 h-3"></i>
+                            批量导入搜索词
+                            <input type="file" id="batch-file-input" class="hidden" accept=".xlsx, .xls">
+                        </label>
+                    </div>
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i data-lucide="search" class="h-5 h-5 text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
+                        </div>
+                        <input type="text" id="search-input" class="block w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all outline-none" placeholder="输入 KOL 名称或 UID 片段...">
+                    </div>
+
+                    <!-- 搜索预览 -->
+                    <div id="search-preview" class="hidden mt-4 animate-slide-down">
+                        <div class="flex items-center gap-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-3">
+                                    <span id="preview-key" class="text-lg font-bold text-blue-900 truncate"></span>
+                                    <span class="text-blue-300">→</span>
+                                    <span id="preview-value" class="text-sm font-medium text-blue-600 truncate"></span>
+                                </div>
+                                <p class="text-[10px] font-bold text-blue-400 uppercase mt-1">按回车键或点击按钮添加到列表</p>
+                            </div>
+                            <button id="add-match-btn" class="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all">
+                                确认添加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 结果列表 -->
+                <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4 bg-gray-50/50">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-green-100 rounded-lg">
+                                <i data-lucide="table" class="text-green-600 w-5 h-5"></i>
+                            </div>
+                            <h3 class="font-bold text-gray-900">匹配结果列表</h3>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="export-btn" class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-green-100">
+                                <i data-lucide="download" class="w-4 h-4"></i> 导出 Excel
+                            </button>
+                            <button id="clear-btn" class="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl text-sm font-semibold transition-all">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[500px]">
+                        <table class="w-full border-collapse">
+                            <thead class="sticky top-0 z-10">
+                                <tr class="bg-gray-100 border-b border-gray-300">
+                                    <th class="w-12 border-r border-gray-300"></th>
+                                    <th class="px-4 py-1.5 border-r border-gray-300 text-[10px] font-bold text-gray-500 text-center">A</th>
+                                    <th class="px-4 py-1.5 border-r border-gray-300 text-[10px] font-bold text-gray-500 text-center">B</th>
+                                    <th class="w-16 bg-gray-100"></th>
+                                </tr>
+                                <tr class="bg-gray-50 border-b border-gray-200">
+                                    <th class="w-12 bg-gray-100 border-r border-gray-300 text-[10px] font-bold text-gray-400 text-center">1</th>
+                                    <th class="px-4 py-2 border-r border-gray-200 text-xs font-bold text-gray-600 text-left italic">KOL 名称</th>
+                                    <th class="px-4 py-2 border-r border-gray-200 text-xs font-bold text-gray-600 text-left italic">UID / 数值</th>
+                                    <th class="w-16"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="results-body">
+                                <!-- 动态注入 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="mt-12 text-gray-400 text-xs pb-8 text-center leading-relaxed">
+            纯前端处理：数据不会上传服务器，仅在您的浏览器中解析。<br>
+            由 HTML5, Tailwind & SheetJS 强力驱动。
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
